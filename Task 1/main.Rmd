@@ -1,0 +1,160 @@
+---
+title: "Predicting using Supervised ML (Task 1)"
+author: "Vyom Verma"
+date: "01/06/2022"
+
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+We are given with a small dataset which shows the amount of hours studied per day and scores received. It can be accessed [here](https://raw.githubusercontent.com/AdiPersonalWorks/Random/master/student_scores%20-%20student_scores.csv).
+
+#### Aim {style="margin-bottom: 0px;"}
+
+Our goal is to construct a model to predict the scores received through the number of hours studied per day.
+
+The dataset is of shape (25,2) i.e., it has 25 rows and 2 columns. The two columns are labeled Hours and Scores depicting the hours studied per day and scores received respectively of 25 instances.
+
+### Preparation
+
+The following packages are needed for the task.
+
+```{r importing packages, results = 'hide', message=FALSE }
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+-   **readr** -\> Used for importing the dataset into R.
+
+-   **dplyr** -\> Used for data manipulation on the dataset.
+
+-   **ggplot2** -\> Used to plot various types of graphs and visualizations.
+
+The following functions will be used later in the program.
+
+```{r defining functions}
+sample_test <- function(dataframe, percent){
+  sample_size = floor((percent/100)*nrow(dataframe))
+  set.seed(123)
+  train_index <- sample(seq_len(nrow(dataframe)), size = sample_size)
+  
+  train <- dataframe[train_index, ]
+  test <- dataframe[-train_index, ]
+  
+  return(list(train, test))
+}
+
+combine_train_test <- function(train, test){
+  train$type = 'train'
+  test$type = 'test'
+  return (rbind(test, train))
+}
+```
+
+-   **sample_test** -\> This functions splits a given dataset into training and testing dataset based on the percentage provided in the second argument.
+
+-   **combine_train_test** -\> This function combines the training and test dataset while adding labels in the resulting dataset.
+
+```{r import dataset, message=FALSE, warning=FALSE, results='hide'}
+data <- read_csv("~/TSF-GRIP Data Science/Task 1/data.csv")
+```
+
+```{r view dataset, echo=FALSE}
+head(data, 25)
+```
+
+This is the view of the dataset we have to work with. Let's sheck if the dataset contains any NULL values.
+
+```{r check Null, echo=TRUE}
+data %>% nrow() - data %>% unique() %>% nrow()
+```
+
+The dataset is clean and ready to be worked with.
+
+## Preview
+
+```{r hours vs scores, echo=TRUE, fig.align="center"}
+ggplot(data, aes(Hours, Scores)) + scale_color_manual(values = "darkslategray3") + geom_point(shape = 1) + labs(fill = "Type" ,title = "Hours studied VS Score received", x = "Hours", y = "Scores") 
+
+```
+
+As we can see from the scatter chart, the data shows linearity and to predict the Scores from Hours studied we can simply use Linear Regression.
+
+## Model
+
+To train the model we will firstly divide the data into training data and testing data. We will use training data to train the model and then afterwards test it on the testing data. The training dataset will have 80% of the rows i.e., 20 rows and rest will be used for testing. We will also combine the training and testing data with labels included which we will use to visualize the result after training the model.
+
+```{r split train test, echo=TRUE}
+train_test <- sample_test(data, 80)
+train_data <- as.data.frame(train_test[1])
+test_data <- as.data.frame(train_test[2])
+
+testtrain_data <- combine_train_test(train_data, test_data)
+```
+
+Now we will train the model using the train_data generated above.
+
+```{r training model, echo=TRUE}
+model <- lm(Scores~Hours, train_data)
+```
+
+The summary of the model trained is shown below.
+
+```{r summary model, echo=FALSE}
+summary(model)
+```
+
+We concur from this summary that the residuals are low, which means that the actual and predicted values are symmetrical. We can also say by the value of the R-squared that our model has an accuracy of 95.19%.
+
+Our predicted line follows the following equation
+
+<center>
+
+$Score = 10.1670*Hours + 1.3145$
+
+</center>
+
+This accuracy may increase by increasing the number of datapoints.
+
+Let's look how our model performs on the test data. The following dataset shows the actual scores and the predicted scores.
+
+```{r predicted data, echo=TRUE}
+predicted_data <- test_data %>% mutate(predicted_scores = predict(model, test_data)) 
+head(predicted_data)
+```
+
+As you can see the predicted data is not exactly same as the actual scores but it's similar and that's what we want. Now let's plot a line on the scatter graph, which will be our prediction line.
+
+```{r prediction line, echo=TRUE, message=FALSE, warning=FALSE, fig.align="center"}
+ggplot(testtrain_data, aes(Hours, Scores, col = type)) + scale_color_manual(values = c("brown1", "cyan4")) + geom_point(shape = 1) + geom_smooth(method= "lm", color= "darkslategray", se=F) + labs(fill = "Type" ,title = "Hours studied per day VS Score received Prediction Line", x = "Hours", y = "Scores")
+```
+
+The line through the datapoints represent our predictions made. And by puttting the value of Hours studied per day in the equation mentioned above we can predict the Scores Received.
+
+If we want to predict the scores received for a student studying for 9.25 Hrs per day then,
+
+```{r score function, echo=TRUE}
+score <- function(hours){
+  return (10.1670*hours + 1.3145)
+}
+```
+
+```{r 9.25 hours predict, echo=TRUE}
+score(9.25)
+```
+
+According to our model, the student will receive 95.36 marks if they study for 9.25 hours per day.
+
+## Conclusion
+
+The model was built successfully using the dataset given and it has decent accuracy of 95.19%.
