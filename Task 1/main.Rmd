@@ -66,7 +66,7 @@ combine_train_test <- function(train, test){
 -   **combine_train_test** -\> This function combines the training and test dataset while adding labels in the resulting dataset.
 
 ```{r import dataset, message=FALSE, warning=FALSE, results='hide'}
-data <- read_csv("~/TSF-GRIP Data Science/Task 1/data.csv")
+data <- read_csv("~/TSF-GRIP-Data-Science-June-2022/Task 1/data.csv")
 ```
 
 ```{r view dataset, echo=FALSE}

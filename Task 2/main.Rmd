@@ -1,0 +1,195 @@
+---
+title: "Predicting using Unsupervised ML (Task 2)"
+author: "Vyom Verma"
+date: "03/06/2022"
+
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+We are given with a dataset which contains information about the dimensions of petal and sepal and their respective species. We are required to form clusters to identify the different species present. We are also required to find the optimal number of clusters. The dataset can be accessed [here](https://drive.google.com/file/d/11Iq7YvbWZbt8VXjfm06brx66b10YiwK-/view).
+
+#### Meta Data
+
+The dataset is of shape (150,6) i.e., it has 150 rows and 6 columns.
+
+1.  **Id**: Serial Number
+
+2.  **SepalLengthCm**: Length of Sepal in centimeters
+
+3.  **SepalWidthCm**: Width of Sepal in centimeters
+
+4.  **PetalLengthCm**: Length of Petal in centimeters
+
+5.  **PetalWidthCm**: Width of Petal in centimeters
+
+## Preparation
+
+The following packages are needed for the task.
+
+```{r importing packages, results = 'hide', message=FALSE }
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(clue)
+library(plyr)
+```
+
+-   **readr** -\> Used for importing the dataset into R.
+
+-   **dplyr** -\> Used for data manipulation on the dataset.
+
+-   **ggplot2** -\> Used to plot various types of graphs and visualizations.
+
+-   **gridExtra** -\> To visualize multiple graphs simultaneously.
+
+-   **clue** -\> To predict which cluster the data belongs to.
+
+-   **plyr** -\> Contains the function required to map the values after modeling.
+
+The following functions will be used later in the program.
+
+```{r defining functions}
+sample_test <- function(dataframe, percent){
+  sample_size = floor((percent/100)*nrow(dataframe))
+  set.seed(123)
+  train_index <- sample(seq_len(nrow(dataframe)), size = sample_size)
+  
+  train <- dataframe[train_index, ]
+  test <- dataframe[-train_index, ]
+  
+  return(list(train, test))
+}
+```
+
+-   **sample_test** -\> This functions splits a given dataset into training and testing dataset based on the percentage provided in the second argument.
+
+```{r import dataset, message=FALSE, warning=FALSE, results='hide'}
+data <- read_csv("~/TSF-GRIP-Data-Science-June-2022/Task 2/Iris.csv")
+```
+
+```{r view dataset, echo=FALSE}
+head(data)
+```
+
+This is the view of the dataset we have to work with. Let's sheck if the dataset contains any NULL values.
+
+```{r check Null, echo=TRUE}
+data %>% nrow() - data %>% unique() %>% nrow()
+```
+
+The dataset is clean and ready to be worked with.
+
+## Preview
+
+Let's first plot each attribute against each other and group them by species given.
+
+```{r four plots, echo=TRUE, fig.align="center"}
+plot1 <- ggplot(data, aes( SepalLengthCm, PetalLengthCm)) + geom_point(shape = 1,color= "cyan4") 
+plot2 <- ggplot(data, aes( SepalWidthCm, PetalWidthCm)) + geom_point(shape = 1,color="brown1") 
+plot3 <- ggplot(data, aes( SepalWidthCm ,PetalLengthCm)) + geom_point(shape = 1,color= "bisque4") 
+plot4 <- ggplot(data, aes( SepalLengthCm ,PetalWidthCm)) + geom_point(shape = 1,color="blue")
+
+grid.arrange(plot1, plot2, plot3, plot4)
+```
+
+As we can already see that the data can be segregated into multiple clusters, at least 2 or more.
+
+## Model
+
+Firstly let's divide the data into training and testing data.
+
+```{r train and test data, echo=TRUE}
+train_test <- sample_test(data, 80)
+
+train_data <- as.data.frame(train_test[1])
+test_data <- as.data.frame(train_test[2])
+```
+
+To build a clustering model for this dataset we will use K-means clustering.
+
+In the K-mean clustering algorithm, k is the input which represents the number of clusters we wish to find. The algorithm then places k points (centroids) at random positions in our space. Now we calculate the euclidean distance between the data points and centroids. Based on that we assign each data point to the centroid closest to it. Then we reassign the centroid position by calculating the centroid of each cluster. This process is repeated till the position of the centroid does not change.
+
+The thing is that we need to provide it with the value of k but we also need to find the optimal number of clusters in our case. So we will use 'The Elbow Method'. Firstly we will implement K-means where k is in the range 1 to 10 and then plot it.
+
+```{r k-means elbow, echo=TRUE, message=FALSE, warning=FALSE,  fig.align="center"}
+df <- data.frame(matrix(nrow = 0, ncol = 2))
+colnames(df) <- c("n", "mean")
+
+for (i in 1:10){
+  tm <- kmeans(train_data[2:5], i)
+  mean <- tm[4]$withinss
+  df[i,] = c(i,mean)
+}
+
+ggplot(df, aes(n, mean)) + geom_line() + geom_point() + labs(title="Mean WCSS Vs K") + xlab("k") + ylab("Mean WCSS")
+
+```
+
+Using the above graph, you can clearly see why the elbow method is named that way. Within a cluster, the point after which the sum of squares (WCSS) doesn't decrease significantly as it iterates over time is called the optimal point. The value of the point will be our optimal solution.
+
+In this case we can pick either 2 or 3, we will pick 3. Now let's construct the model for k = 3.
+
+```{r build model, echo=TRUE}
+model <- kmeans(train_data[2:5], 3)
+```
+
+Let's predict the which cluster the test data belongs to.
+
+```{r prediction, echo=TRUE}
+sol <- cl_predict(model, test_data[2:5])
+test_data$predicted_species <- sol
+```
+
+Now that we have predicted the values, let's match them against the actual values by plotting both the graphs.
+
+```{r comparing predictions, echo=TRUE,  fig.align="center"}
+ggplot(test_data, aes(SepalLengthCm, PetalLengthCm, color = factor(predicted_species))) + geom_point() + theme(legend.position="bottom") + scale_color_manual(values = c("cadetblue", "deeppink", "darkorange")) + labs(title = "Petal length VS Sepal length") 
+ggplot(test_data, aes(SepalLengthCm, PetalLengthCm, color = Species)) + geom_point() + theme(legend.position="bottom") + labs(title = "Petal length VS Sepal length") 
+```
+
+As we can see that the clusters formed are identical to the given Species, and we can map in the following way
+
+1 -\> Iris-versicolor
+
+2 -\> Iris-virginica
+
+3 -\> Iris-setosa
+
+Let's calculate the accuracy of the model on our dataset.
+
+```{r prediction on whole data, echo=TRUE,  fig.align="center"}
+sol <- cl_predict(model, data[2:5])
+data$predicted_species <- sol
+data$predicted_species <- mapvalues(data$predicted_species, from = c("1","2","3"), c("Iris-versicolor", "Iris-virginica", "Iris-setosa"))
+
+count = 0
+
+for (i in 1:nrow(data)){
+  if (data[7][i, ] != data[6][i, ]){
+    count = count + 1
+  }
+}  
+
+accuracy <- ((150-count)/150)*100
+
+ggplot(data, aes( SepalLengthCm, PetalLengthCm, col=Species)) + geom_point(aes(shape=factor(predicted_species)), size = 2.5) + labs(title = "Petal length VS Sepal length") + scale_shape_discrete("Species Shape") + scale_color_discrete("Species Color")
+
+print(accuracy)
+```
+
+In the above graph, the correct prediction points are where the shape and color matches as given in the legends. The accuracy we calculated from this data is 88.67%.
+
+## Conclusion
+
+Using the mapping and model provided above we can predict which species the flower belongs to given it's SepalLength, SepalWidth, PetalLength, PetalWidth.
