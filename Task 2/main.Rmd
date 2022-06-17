@@ -1,5 +1,5 @@
 ---
-title: "Predicting using Unsupervised ML (Task 2)"
+title: "Prediction using Unsupervised ML (Task 2)"
 author: "Vyom Verma"
 date: "03/06/2022"
 
